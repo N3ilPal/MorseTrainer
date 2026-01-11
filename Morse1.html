@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Morse Code Teacher</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto Mono', monospace;
+            touch-action: manipulation; /* Prevents double-tap zoom on mobile */
+            background-color: #111827; /* dark:bg-gray-900 */
+        }
+        .feedback-correct {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        .feedback-incorrect {
+            animation: shake 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+        }
+        .key-indicator, .choice-btn {
+            transition: all 0.1s ease-out;
+        }
+        /* Styles for the modal */
+        .modal {
+            transition: opacity 0.25s ease;
+        }
+        .modal-content {
+            transition: transform 0.25s ease;
+        }
+    </style>
+</head>
+<body class="text-white flex items-center justify-center min-h-screen antialiased select-none">
+
+    <main class="w-full max-w-lg mx-auto p-4 md:p-8 text-center">
+        <!-- Header -->
+        <div class="relative w-full text-center mb-2">
+            <h1 class="text-4xl md:text-5xl font-bold text-cyan-400">Morse Code Teacher</h1>
+        </div>
+        <p class="text-gray-400 mb-6">Choose your mode and master the code.</p>
+
+        <!-- Mode Switcher -->
+        <div class="flex justify-center bg-gray-800 rounded-lg p-1 mb-6">
+            <button id="mode-char-to-morse" class="mode-btn w-1/2 py-2 rounded-md font-semibold transition bg-cyan-500 text-gray-900">Character to Morse</button>
+            <button id="mode-morse-to-char" class="mode-btn w-1/2 py-2 rounded-md font-semibold transition text-gray-400">Morse to Character</button>
+        </div>
+
+        <!-- Main Display Card -->
+        <div class="bg-gray-800 rounded-2xl shadow-xl shadow-black/20 p-6 md:p-10 mb-6">
+            <p id="prompt-text" class="text-lg text-gray-400 mb-2">Translate this character:</p>
+            <div id="challenge-display" class="text-8xl md:text-9xl font-bold text-white h-28 flex items-center justify-center tracking-widest">
+                A
+            </div>
+        </div>
+        
+        <!-- User Input Area -->
+        <div id="input-area" class="bg-gray-800 rounded-2xl shadow-xl shadow-black/20 p-6 mb-6 min-h-[100px] flex items-center justify-center">
+             <!-- Char-to-Morse input -->
+             <div id="input-display-morse" class="text-4xl md:text-5xl font-bold text-cyan-400 tracking-widest h-12"></div>
+             <!-- Morse-to-Char input -->
+             <div id="input-display-choices" class="hidden grid grid-cols-2 gap-4 w-full">
+                <!-- Choice buttons will be inserted here -->
+             </div>
+        </div>
+
+        <!-- Feedback Message -->
+        <div id="feedback-message" class="h-8 mb-4 text-lg font-semibold">&nbsp;</div>
+
+        <!-- Spacebar Indicator (Only for char-to-morse mode) -->
+        <div id="spacebar-area">
+            <div class="flex justify-center items-center mb-8">
+                <div id="space-key" class="key-indicator bg-gray-700 border-b-4 border-gray-600 rounded-lg px-16 py-3 transition-transform">
+                    SPACE
+                </div>
+            </div>
+            <div class="bg-gray-800/50 rounded-lg p-4 text-gray-400 text-sm">
+                <p><strong class="text-cyan-400">Tap Spacebar</strong> for a DOT (•)</p>
+                <p><strong class="text-cyan-400">Hold Spacebar</strong> for a DASH (—)</p>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="mt-8 flex justify-center space-x-4">
+            <button id="check-btn" class="bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-bold py-3 px-8 rounded-lg shadow-lg transition-transform transform hover:scale-105">Check</button>
+            <button id="next-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition-transform transform hover:scale-105">Next</button>
+            <button id="show-chart-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition-transform transform hover:scale-105">Show Chart</button>
+        </div>
+    </main>
+
+    <!-- Morse Code Chart Modal -->
+    <div id="morse-chart-modal" class="modal fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 opacity-0 pointer-events-none z-50">
+        <div class="modal-content bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 transform scale-95">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-cyan-400">Morse Code Chart</h2>
+                <button id="close-chart-btn" class="text-gray-400 hover:text-white">&times;</button>
+            </div>
+            <div id="morse-chart-content" class="grid grid-cols-3 sm:grid-cols-4 gap-x-4 gap-y-2 text-left max-h-[60vh] overflow-y-auto">
+                <!-- Chart will be populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const challengeDisplay = document.getElementById('challenge-display');
+        const inputDisplayMorse = document.getElementById('input-display-morse');
+        const inputDisplayChoices = document.getElementById('input-display-choices');
+        const feedbackMessage = document.getElementById('feedback-message');
+        const spaceKeyIndicator = document.getElementById('space-key');
+        const checkBtn = document.getElementById('check-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const promptText = document.getElementById('prompt-text');
+        const spacebarArea = document.getElementById('spacebar-area');
+        const modeBtnCharToMorse = document.getElementById('mode-char-to-morse');
+        const modeBtnMorseToChar = document.getElementById('mode-morse-to-char');
+        const showChartBtn = document.getElementById('show-chart-btn');
+        const closeChartBtn = document.getElementById('close-chart-btn');
+        const morseChartModal = document.getElementById('morse-chart-modal');
+        const morseChartContent = document.getElementById('morse-chart-content');
+
+        // Morse Code Dictionary
+        const MORSE_CODE = {
+            'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.',
+            'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..',
+            'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.',
+            'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-',
+            'Y': '-.--', 'Z': '--..',
+            '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....',
+            '6': '-....', '7': '--...', '8': '---..', '9': '----.', '0': '-----'
+        };
+        const CHARACTERS = Object.keys(MORSE_CODE);
+
+        // Game State
+        let gameMode = 'charToMorse'; // 'charToMorse' or 'morseToChar'
+        let currentCharacter = '';
+        let currentMorse = '';
+        let userInputMorse = '';
+        let pressStartTime = 0;
+        let isKeyPressed = false;
+        
+        const DASH_THRESHOLD_MS = 150;
+
+        function setupUIForMode() {
+            if (gameMode === 'charToMorse') {
+                promptText.textContent = 'Translate this character:';
+                spacebarArea.classList.remove('hidden');
+                inputDisplayMorse.classList.remove('hidden');
+                inputDisplayChoices.classList.add('hidden');
+                checkBtn.classList.remove('hidden');
+                challengeDisplay.classList.remove('text-5xl');
+                challengeDisplay.classList.add('text-8xl', 'md:text-9xl');
+            } else { // morseToChar
+                promptText.textContent = 'Translate this Morse code:';
+                spacebarArea.classList.add('hidden');
+                inputDisplayMorse.classList.add('hidden');
+                inputDisplayChoices.classList.remove('hidden');
+                checkBtn.classList.add('hidden');
+                challengeDisplay.classList.remove('text-8xl', 'md:text-9xl');
+                challengeDisplay.classList.add('text-5xl');
+            }
+            startNewRound();
+        }
+
+        function startNewRound() {
+            const randomIndex = Math.floor(Math.random() * CHARACTERS.length);
+            currentCharacter = CHARACTERS[randomIndex];
+            currentMorse = MORSE_CODE[currentCharacter];
+            
+            feedbackMessage.textContent = '\u00A0';
+            feedbackMessage.className = 'h-8 mb-4 text-lg font-semibold';
+            
+            if (gameMode === 'charToMorse') {
+                challengeDisplay.textContent = currentCharacter;
+                userInputMorse = '';
+                inputDisplayMorse.textContent = '';
+                checkBtn.disabled = false;
+            } else {
+                challengeDisplay.textContent = currentMorse.replace(/\./g, '•').replace(/-/g, '—');
+                generateChoices();
+            }
+        }
+
+        function generateChoices() {
+            let choices = [currentCharacter];
+            while (choices.length < 4) {
+                const randomChar = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
+                if (!choices.includes(randomChar)) {
+                    choices.push(randomChar);
+                }
+            }
+            choices.sort(() => Math.random() - 0.5);
+
+            inputDisplayChoices.innerHTML = '';
+            choices.forEach(choice => {
+                const button = document.createElement('button');
+                button.textContent = choice;
+                button.classList.add('choice-btn', 'bg-gray-700', 'text-white', 'hover:bg-cyan-500', 'hover:text-gray-900', 'font-bold', 'py-4', 'px-4', 'rounded-lg', 'shadow-lg', 'transition-transform', 'transform', 'hover:scale-105', 'text-2xl');
+                button.onclick = () => checkChoice(choice);
+                inputDisplayChoices.appendChild(button);
+            });
+        }
+
+        function checkChoice(selectedChar) {
+            document.querySelectorAll('.choice-btn').forEach(btn => btn.disabled = true);
+            
+            if (selectedChar === currentCharacter) {
+                feedbackMessage.textContent = 'Correct!';
+                feedbackMessage.classList.add('text-green-400', 'feedback-correct');
+                setTimeout(startNewRound, 1500);
+            } else {
+                feedbackMessage.textContent = `Nope! It was ${currentCharacter}`;
+                feedbackMessage.classList.add('text-red-400', 'feedback-incorrect');
+                setTimeout(startNewRound, 2000);
+            }
+        }
+
+        function handleKeyPressDown(e) {
+            if (gameMode !== 'charToMorse' || e.code !== 'Space' || isKeyPressed) return;
+            isKeyPressed = true;
+            pressStartTime = Date.now();
+            spaceKeyIndicator.classList.add('bg-cyan-500', 'border-cyan-400', 'scale-95');
+        }
+
+        function handleKeyPressUp(e) {
+            if (gameMode !== 'charToMorse' || e.code !== 'Space' || !isKeyPressed) return;
+            isKeyPressed = false;
+            const pressDuration = Date.now() - pressStartTime;
+            if (pressDuration < DASH_THRESHOLD_MS) {
+                userInputMorse += '.';
+                inputDisplayMorse.textContent += '•';
+            } else {
+                userInputMorse += '-';
+                inputDisplayMorse.textContent += '—';
+            }
+            spaceKeyIndicator.classList.remove('bg-cyan-500', 'border-cyan-400', 'scale-95');
+        }
+
+        function checkMorseAnswer() {
+            if (userInputMorse === currentMorse) {
+                feedbackMessage.textContent = 'Correct!';
+                feedbackMessage.classList.add('text-green-400', 'feedback-correct');
+                checkBtn.disabled = true;
+                setTimeout(startNewRound, 1500);
+            } else {
+                feedbackMessage.textContent = 'Incorrect! Try again.';
+                feedbackMessage.classList.add('text-red-400', 'feedback-incorrect');
+            }
+        }
+
+        function populateChart() {
+            morseChartContent.innerHTML = '';
+            for (const char in MORSE_CODE) {
+                const div = document.createElement('div');
+                div.classList.add('p-1');
+                const morseDisplay = MORSE_CODE[char].replace(/\./g, '•').replace(/-/g, '—');
+                div.innerHTML = `<span class="font-bold text-lg text-white">${char}</span> <span class="text-cyan-400">${morseDisplay}</span>`;
+                morseChartContent.appendChild(div);
+            }
+        }
+        
+        function toggleChart(show) {
+            if(show) {
+                morseChartModal.classList.remove('opacity-0', 'pointer-events-none');
+                morseChartModal.querySelector('.modal-content').classList.remove('scale-95');
+            } else {
+                morseChartModal.classList.add('opacity-0', 'pointer-events-none');
+                morseChartModal.querySelector('.modal-content').classList.add('scale-95');
+            }
+        }
+
+        // --- EVENT LISTENERS ---
+        window.addEventListener('keydown', handleKeyPressDown);
+        window.addEventListener('keyup', handleKeyPressUp);
+        window.addEventListener('keydown', e => {
+            if (gameMode === 'charToMorse' && !isKeyPressed) {
+                if (e.code === 'Enter') {
+                    checkMorseAnswer();
+                } else if (e.code === 'Backspace') {
+                    if (userInputMorse.length > 0) {
+                        userInputMorse = userInputMorse.slice(0, -1);
+                        inputDisplayMorse.textContent = inputDisplayMorse.textContent.slice(0, -1);
+                    }
+                }
+            }
+        });
+
+        checkBtn.addEventListener('click', checkMorseAnswer);
+        nextBtn.addEventListener('click', startNewRound);
+
+        modeBtnCharToMorse.addEventListener('click', () => {
+            if (gameMode === 'charToMorse') return;
+            gameMode = 'charToMorse';
+            modeBtnCharToMorse.classList.add('bg-cyan-500', 'text-gray-900');
+            modeBtnCharToMorse.classList.remove('text-gray-400');
+            modeBtnMorseToChar.classList.remove('bg-cyan-500', 'text-gray-900');
+            modeBtnMorseToChar.classList.add('text-gray-400');
+            setupUIForMode();
+        });
+
+        modeBtnMorseToChar.addEventListener('click', () => {
+            if (gameMode === 'morseToChar') return;
+            gameMode = 'morseToChar';
+            modeBtnMorseToChar.classList.add('bg-cyan-500', 'text-gray-900');
+            modeBtnMorseToChar.classList.remove('text-gray-400');
+            modeBtnCharToMorse.classList.remove('bg-cyan-500', 'text-gray-900');
+            modeBtnCharToMorse.classList.add('text-gray-400');
+            setupUIForMode();
+        });
+        
+        showChartBtn.addEventListener('click', () => toggleChart(true));
+        closeChartBtn.addEventListener('click', () => toggleChart(false));
+        morseChartModal.addEventListener('click', (e) => {
+            if (e.target === morseChartModal) {
+                 toggleChart(false);
+            }
+        });
+
+        spaceKeyIndicator.addEventListener('touchstart', (e) => { e.preventDefault(); handleKeyPressDown({ code: 'Space' }); });
+        spaceKeyIndicator.addEventListener('touchend', (e) => { e.preventDefault(); handleKeyPressUp({ code: 'Space' }); });
+        
+        // --- INITIAL SETUP ---
+        populateChart();
+        setupUIForMode();
+    </script>
+</body>
+</html>
+
